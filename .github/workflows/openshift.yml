@@ -1,0 +1,40 @@
+name: OpenShift test
+
+# Run this workflow every time a new commit pushed to your repository
+on: [ push, workflow_dispatch ]
+
+jobs:
+  # Set the job key. The key is displayed as the job name
+  # when a job name is not provided
+  openshift:
+    # Name the Job
+    name: OpenShift test
+    # Set the type of machine to run on
+    runs-on: ubuntu-latest
+
+    steps:
+      # Checks out a copy of your repository on the ubuntu-latest machine
+      - name: Checkout code
+        uses: actions/checkout@v2
+        env:
+          DEFAULT_BRANCH: main
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Init OpenShift
+        uses: redhat-developer/openshift-actions@v2.1.0
+
+      - name: Auth OpenShift
+        run: |
+          oc login --token=${{ secrets.API_TOKEN }} --server=${{ secrets.OPENSHIFT_SERVER_URL }} --insecure-skip-tls-verify=true
+
+      - name: Deploy app
+        run: |
+          oc create -f timer.yaml
+
+      - name: Test deploy app
+        run: |
+          oc get job
+
+      - name: Cleanup
+        run: |
+          oc delete -f timer.yaml
