@@ -1,4 +1,4 @@
-name: OpenShift test
+name: OpenShift tests!
 
 # Run this workflow every time a new commit pushed to your repository
 on: [ push, workflow_dispatch ]
@@ -6,14 +6,15 @@ on: [ push, workflow_dispatch ]
 jobs:
   # Set the job key. The key is displayed as the job name
   # when a job name is not provided
-  openshift:
-    # Name the Job
-    name: OpenShift test
+  openshift-auth:
+    name: OpenShift Auth
     # Set the type of machine to run on
     runs-on: ubuntu-18.04
+    outputs:
+      kubeconfig: ${{steps.auth.outputs.kubeconfig}}
 
     steps:
-      - name: Checkout code
+      - name: checkout
         uses: actions/checkout@v2
         env:
           DEFAULT_BRANCH: main
@@ -22,46 +23,25 @@ jobs:
       #- name: Init OpenShift
         #uses: redhat-developer/openshift-actions@v2.1.0
 
-      - name: Auth OpenShift
+      - name: auth
+        shell: bash
         run: |
           oc login --token=${{ secrets.API_TOKEN }} --server=${{ secrets.OPENSHIFT_SERVER_URL }} --insecure-skip-tls-verify=true
+          echo "::set-output name=kubeconfig::$(oc config view --flatten=true --minify=true)"
+          echo "we did it"
 
-      - name: Deploy app
-        run: |
-          oc create -f timer.yaml
-
-      - name: Test deploy app
-        run: |
-          oc get job | tee job.txt
-
-      - name: Cleanup
-        run: |
-          oc delete -f timer.yaml
-
-  openshift2:
-    name: Openshift 2 test
-    runs-on: macos-latest
-
-    needs: openshift
-
-    steps:
-      - name: thing
-        run: |
-          oc get job | tee job2.txt
-      - name: cat
-        run: |
-          cat job.txt
-
-  openshift3:
-    name: Openshift 2 test
+  openshift-readconfig:
+    name: OpenShift Load Config
     runs-on: ubuntu-latest
 
-    needs: openshift
+    needs: openshift-auth
 
     steps:
-      - name: thing
+      - name: Load Config
+        env:
+          KUBECONFIG: kubeconfig.yaml
         run: |
-          oc get job | tee job2.txt
-      - name: cat
-        run: |
-          cat job.txt
+          echo "The kube config file is $KUBECONFIG"
+          echo "${{ needs.openshift-auth.outputs.kubeconfig }}" | tee $KUBECONFIG
+          cat $KUBECONFIG
+          echo "okay"
